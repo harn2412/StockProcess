@@ -59,11 +59,15 @@ def convert_to_number(text):
 def get_index_name(text):
     """Lam dep phan ten cua cac thong so"""
 
-    pattern = re.compile(r'\s*([\w\d].*[\w\d])\s*')
+    pattern = re.compile(r'\s*([\w(].*\w)\s*')
     search_result = pattern.search(text)
+
     logger.debug('"search_result" VAR is: %s' % search_result)
 
     if search_result is not None:
+        pattern = re.compile(r'[IVX\d\-.\s]*(.*)')  # loai bo phan danh so chi muc
+        search_result = pattern.search(search_result.group(1))
+
         index = search_result.group(1)
         logger.info('Chuyen doi thanh cong, ket qua thu duoc: %s' % index)
         return index
@@ -102,7 +106,8 @@ def get_data(page_soup):
         logger.debug('"table_content" VAR is: %s' % table_content)
 
         # Danh sach cac thong so
-        index = []
+        index_id = []
+        index_name = []
 
         # Du lieu trong bang
         data = []
@@ -111,18 +116,29 @@ def get_data(page_soup):
         logger.debug('"rows" VAR is: %s' % rows)
 
         for row in rows:
-            # bo qua cac hang an vi lam sai lech ket qua
             logger.debug('"row" VAR is: %s' % row)
-            if row.find('tr', {'style': 'display:none'}):
+            # bo qua cac hang an vi khong can thiet
+            tr_style = row.get('style')
+            if tr_style is not None and 'display:none' in tr_style:
+                logger.info('Phat hien hang bi an, tien hanh bo qua')
                 continue
 
             cells = row.find_all('td', {'class': 'b_r_c'})
             logger.debug('"cells" VAR is: %s' % cells)
 
+            # Lay ma ID cua thong so
+            value_id = row.get('id')
+            # Giai quyet cac truong hop bi trung id
+            while value_id in index_id:
+                logger.warning('Ma ID "%s" bi trung, dang tien hanh sua chua')
+                value_id += '*'
+            logger.debug('"value_id" VAR is: %s' % value_id)
+            index_id.append(value_id)
+
             # Cell dau tien ten cua thong so (value name)
             value_name = get_index_name(cells[0].text)
             logger.debug('"value_name" VAR is: %s' % value_name)
-            index.append(value_name)
+            index_name.append(value_name)
 
             # 4 cell ke tiep la du lieu can lay trong hang
             row_data = [
@@ -134,10 +150,11 @@ def get_data(page_soup):
             logger.debug('"row_data" VAR is: %s' % row_data)
             data.append(row_data)
 
-    logger.debug('"index" VAR is: %s' % index)
+    logger.debug('"index_id" VAR is: %s' % index_id)
+    logger.debug('"index_name" VAR is: %s' % index_name)
     logger.debug('"data" VAR is: %s' % data)
 
-    return index, data
+    return index_id, index_name, data
 
 
 def create_stock_list(text):
@@ -157,12 +174,6 @@ def create_option_list(text):
         return options
 
 
-def create_report(columns, index, data):
-    """tao ra bang bao cao voi Column la cac nam, Index la cac loai thong tin, data la du lieu trong bang"""
-    df = pandas.DataFrame(data=data, index=index, columns=columns)
-    return df
-
-
 def get_current_year():
     """Lay nam hien tai"""
     from datetime import datetime
@@ -174,6 +185,8 @@ def get_data_of_many_year(stock, style, name, how_many_year):
     """Lay du lieu trong nhieu nam va tong hop lai thanh mot bang"""
 
     df = None
+    full_index_ids = None
+    full_index_names = None
     year = get_current_year()
 
     url_template = ('http://s.cafef.vn/bao-cao-tai-chinh/{stock_id}/'
@@ -187,6 +200,7 @@ def get_data_of_many_year(stock, style, name, how_many_year):
         year=year,
         report_name=name,
     )
+    logger.debug('"url" VAR is: %s' % url)
 
     page = requests.get(url)
     page.raise_for_status()
@@ -194,7 +208,9 @@ def get_data_of_many_year(stock, style, name, how_many_year):
     soup = BeauSoup(page.content, 'lxml')
 
     years = get_years(soup)
+    logger.debug('"years" VAR is: %s' % years)
     year = years[-1]  # cap nhat lai nam cuoi cung trong bang bao cao
+    logger.info('Name moi nhat trong bao cao la: %s' % year)
 
     for year in range(year, year - how_many_year, -4):
         if df is not None:
@@ -204,7 +220,7 @@ def get_data_of_many_year(stock, style, name, how_many_year):
                 report_style=style,
                 year=year,
                 report_name=name,
-                )
+            )
 
             page = requests.get(url)
             page.raise_for_status()
@@ -215,34 +231,58 @@ def get_data_of_many_year(stock, style, name, how_many_year):
         years = get_years(soup)
 
         # Du lieu va chi muc hien tai
-        index, data = get_data(soup)
+        index_ids, index_names, data = get_data(soup)
 
         # Tao Dataframe cho cac nam hien tai
-        dump_df = pandas.DataFrame(data=data, index=index, columns=years)
+        dump_df = pandas.DataFrame(data=data, index=index_ids, columns=years)
         logger.debug('"dump_df" VAR is: %s' % dump_df)
 
         if df is None:
             df = dump_df
+            full_index_ids = index_ids
+            full_index_names = index_names
         else:
             logger.debug('"df" VAR is: %s' % df)
-            temp_a = set(list(df.index.values))
-            temp_b = set(list(dump_df.index.values))
 
-            print(temp_a - temp_b)
+            for index_id, index_name in zip(index_ids, index_names):
+                # chuan bi danh sach ID va Ten tuong ung cho cac loai gia tri
+                if index_id not in full_index_ids:
+                    logger.info('Tim thay id moi: % s' % index_id)
+                    full_index_ids.append(index_id)
+                    full_index_names.append(index_name)
 
-            df = df.merge(dump_df)
+            df = dump_df.merge(
+                df,
+                how='outer',
+                left_index=True,
+                right_index=True
+            )
+
+    # tao DataFrame chua ten cac gia tri de them vao cho ro rang
+    df_index = pandas.DataFrame(full_index_names, index=full_index_ids, columns=['name'])
+    logger.debug('"df_index" VAR is %s' % df_index)
+    df = df_index.merge(df, how='outer', left_index=True, right_index=True)
+    logger.debug('Last "df" VAR is % s' % df)
 
     return df
 
 
 report_style = {
-    1: ('can-doi-ke-toan', 'BSheet'),
-    2: ('ket-qua-hoat-dong-kinh-doanh', 'IncSta'),
-    3: ('luu-chuyen-tien-te-gian-tiep', 'CashFlow'),
+    1: ('can-doi-ke-toan', 'BSheet', 'bs.csv'),
+    2: ('ket-qua-hoat-dong-kinh-doanh', 'IncSta', 'ist.csv'),
+    3: ('luu-chuyen-tien-te-gian-tiep', 'CashFlow', 'cf.csv'),
 }
 
 
 def main():
+    # Duong dan cua thu muc cai dat
+    installed_dir = os.path.dirname(os.path.realpath(__file__))
+    logger.info('Thu muc cai dat la: %s' % installed_dir)
+
+    # Tao thu muc chua ket qua
+    database_dir = os.path.join(installed_dir, 'database')
+    os.makedirs(database_dir, exist_ok=True)
+    logger.info('Khoi tao thu muc chua ket qua: %s' % database_dir)
 
     # Lay danh sach cac co phieu muon lay du lieu
     print('Nhap vao cac ma co phieu muon lay du lieu, '
@@ -263,17 +303,20 @@ def main():
     options = create_option_list(input_text)
 
     for stock in stocks:
+        # Tao thu muc cho ma co phieu
+        stock_dir = os.path.join(database_dir, stock)
+        os.makedirs(stock_dir, exist_ok=True)
+        logger.info('Khoi tao thu muc cho ma co phieu "%s"' % stock)
+
         for option in options:
-
             report = get_data_of_many_year(stock, report_style[option][1], report_style[option][0], 10)
+            logger.debug('"report" VAR is: %s' % report)
 
-            print(report)
+            # luu thanh file ket qua
+            file_patch = os.path.join(stock_dir, report_style[option][2])
+            report.to_csv(file_patch)
+            logger.info('Da luu file "%s" thanh cong' % file_patch)
 
 
 if __name__ == '__main__':
-    # main()
-    url = 'http://s.cafef.vn/bao-cao-tai-chinh/FPT/BSheet/2014/0/0/0/0/bao-cao-tai-chinh-cong-ty-co-phan-fpt.chn'
-    page = requests.get(url)
-    soup = BeauSoup(page.content, 'lxml')
-
-    print(get_data(soup))
+    main()
