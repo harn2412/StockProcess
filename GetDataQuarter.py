@@ -298,7 +298,8 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter):
             logger.debug('"columns" VAR is: %s' % columns)
             dump_df = pandas.DataFrame(data, index=index_names, columns=columns)
 
-            df = dump_df.merge(df, how='outer', right_index=True, left_index=True)
+            # df = dump_df.merge(df, how='outer', right_index=True, left_index=True)
+            df = pandas.concat([dump_df, df], axis=1)
 
     df = customize_report(df)
     logger.debug('"df" VAR is: %s' % df)
