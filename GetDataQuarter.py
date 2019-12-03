@@ -59,29 +59,6 @@ def convert_to_number(text):
     return result
 
 
-def get_year_quarter(page_soup):
-    """Lay danh sach cac quy hien co trong trang"""
-    pattern = re.compile(r'Quý (\d)-(\d{4})')
-
-    years_quarter_td = page_soup.find_all('td', {'class': 'h_t'})
-    logger.debug('"years_quarter_td" VAR is: %s' % years_quarter_td)
-
-    if years_quarter_td is not None:
-        years_quarter = [pattern.search(td.text) for td in years_quarter_td]
-
-        year_quarter_slitted = []
-        for year in years_quarter:
-            quarter, year = int(year.group(1)), int(year.group(2))
-            year_quarter_slitted.append((quarter, year))
-
-        logger.info('Lay danh sach cac nam thanh cong, gia tri la: %s' % year_quarter_slitted)
-        return year_quarter_slitted
-
-    else:
-        logger.warning('Khong tim thay danh sach cac nam')
-        return None
-
-
 def get_index_name(text):
     """Lam dep phan ten cua cac thong so"""
 
@@ -99,22 +76,6 @@ def get_index_name(text):
     else:
         logger.warning('Khong the lam dep phan ten thong so')
         return text
-
-
-def get_years(page_soup):
-    """Lay danh sach cac nam hien co trong trang"""
-
-    years_td = page_soup.find_all('td', {'class': 'h_t'})
-    logger.debug('"years_td" VAR is: %s' % years_td)
-
-    if years_td is not None:
-        years = [convert_to_number(td.text) for td in years_td]
-        logger.info('Lay danh sach cac nam thanh cong, gia tri la: %s' % years)
-        return years
-
-    else:
-        logger.warning('Khong tim thay danh sach cac nam')
-        return None
 
 
 def get_data(page_soup):
@@ -190,8 +151,9 @@ def create_option_list(text):
 def get_current_year_quarter():
     """Lay nam va quy hien tai"""
     from datetime import datetime
-    current_year = datetime.now().year
-    current_quarter = datetime.now().month // 3 + 1
+    now = datetime.now()
+    current_year = now.year
+    current_quarter = (now.month - 1) // 3 + 1
     return current_year, current_quarter
 
 
@@ -244,8 +206,9 @@ def countdown_quarter(year, quarter, step):
 def get_data_of_many_quarter(stock, style, name, how_many_quarter):
     """Lay du lieu trong nhieu quy va tong hop lai thanh mot bang"""
 
-    df = []
+    df = None
     year, quarter = get_current_year_quarter()
+    quarter -= 1  # vi quy hien tai chac chan khong co du lieu
 
     url_template = ('http://s.cafef.vn/bao-cao-tai-chinh/{stock_id}/'
                     '{report_style}/'
@@ -278,13 +241,16 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter):
 
             index_names, data = get_data(soup)
             dump_df = pandas.DataFrame(data, index=index_names, columns=columns)
+            dump_df = dump_df.fillna(0)
+            logger.debug('"dump_df" VAR is: %s' % dump_df)
             last_column = dump_df[columns[-1]].tolist()
+            logger.debug('"last_column" VAR is: %s' % last_column)
 
-            if set(last_column) == {numpy.nan}:
+            if set(last_column) == {0}:
                 print('Khong tim thay du lieu, thu tai lai trang ...')
             else:
                 right_quarter = True
-                df.append(dump_df)
+                df = dump_df
                 break
             sleep(1)
 
@@ -313,7 +279,8 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter):
     # Neu tim thay quy chinh xac thi tien hanh lay du lieu
     # Tiep tuc tai cac du lieu con thieu
     if how_many_quarter > 4:
-        full_quarter_list = countdown_quarter(year, quarter, how_many_quarter)
+        full_quarter_list = countdown_quarter(year, quarter, how_many_quarter - 4)
+        logger.debug('"full_quarter_list" VAR is: %s' % full_quarter_list)
         for year, quarter in full_quarter_list[3::4]:  # bat dau tu 3 la vi gia tri dau tien da tien len 1 san
             url = url_template.format(
                 stock_id=stock,
@@ -328,12 +295,17 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter):
 
             index_names, data = get_data(soup)
             columns = create_year_quarter_header(year, quarter, 4)
+            logger.debug('"columns" VAR is: %s' % columns)
             dump_df = pandas.DataFrame(data, index=index_names, columns=columns)
 
             df = dump_df.merge(df, how='outer', right_index=True, left_index=True)
 
-    customize_report(df)
-    return df
+    df = customize_report(df)
+    logger.debug('"df" VAR is: %s' % df)
+    df_header = df.columns
+    logger.debug('"df" VAR is: %s' % df_header)
+    how_long = '"{}"-"{}"'.format(df_header[0], df_header[-1])
+    return how_long, df
 
 
 report_style = {
@@ -401,14 +373,12 @@ def main():
 
         for option in options:
             report = get_data_of_many_quarter(stock, report_style[option][1], report_style[option][0], 8)
-            logger.debug('"report" VAR is: %s' % report)
 
             # luu thanh file ket qua
-            for child_report in report:
-                how_long, data_frame = child_report
-                file_patch = os.path.join(stock_dir, report_style[option][2].format(how_long))
-                data_frame.to_csv(file_patch)
-                logger.info('Da luu file "%s" thanh cong' % file_patch)
+            how_long, data_frame = report
+            file_patch = os.path.join(stock_dir, report_style[option][2].format(how_long))
+            data_frame.to_csv(file_patch)
+            logger.info('Da luu file "%s" thanh cong' % file_patch)
 
 
 if __name__ == '__main__':
