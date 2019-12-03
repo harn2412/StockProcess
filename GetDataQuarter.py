@@ -101,11 +101,11 @@ def get_data(page_soup):
 
         for row in rows:
             logger.debug('"row" VAR is: %s' % row)
-            # bo qua cac hang an vi khong can thiet
-            tr_style = row.get('style')
-            if tr_style is not None and 'display:none' in tr_style:
-                logger.info('Phat hien hang bi an, tien hanh bo qua')
-                continue
+            # # bo qua cac hang an vi khong can thiet
+            # tr_style = row.get('style')
+            # if tr_style is not None and 'display:none' in tr_style:
+            #     logger.info('Phat hien hang bi an, tien hanh bo qua')
+            #     continue
 
             cells = row.find_all('td', {'class': 'b_r_c'})
             logger.debug('"cells" VAR is: %s' % cells)
