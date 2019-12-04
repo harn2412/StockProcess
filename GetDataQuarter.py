@@ -305,7 +305,7 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter):
     logger.debug('"df" VAR is: %s' % df)
     df_header = df.columns
     logger.debug('"df" VAR is: %s' % df_header)
-    how_long = '"{}"-"{}"'.format(df_header[0], df_header[-1])
+    how_long = '{}-{}'.format(df_header[0], df_header[-1])
     return how_long, df
 
 
