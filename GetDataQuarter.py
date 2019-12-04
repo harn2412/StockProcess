@@ -18,7 +18,7 @@ formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s',
                               datefmt='%y-%m-%d %H:%M:%S')
 
 # Khai bao log Handler de ghi ket qua vao file log
-file = logging.FileHandler('result.log')
+file = logging.FileHandler('result.log', 'a', 'utf-8')
 file.setLevel(logging.DEBUG)
 file.setFormatter(formatter)
 logger.addHandler(file)
