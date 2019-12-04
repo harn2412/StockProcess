@@ -232,7 +232,7 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter):
     right_quarter = False
     retry = 0
 
-    while right_quarter is not True and retry < 3:
+    while right_quarter is not True:
         try_time = 7
         for i in range(0, try_time):
             page = requests.get(url)
@@ -270,8 +270,12 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter):
             columns = create_year_quarter_header(year, quarter, 4)
             print("Da cap nhat lai URL moi voi gia tri: %s" % url)
             print("Tien hanh thu lai lan %s" % retry)
+
+        if retry >= 3:
+            print('Khong the tim thay du lieu trong cot cuoi cung, de nghi kiem tra lai')
+            break
     else:
-        print('Khong the tim thay du lieu trong cot cuoi cung, de nghi kiem tra lai')
+        print('Da tim thay du lieu cho cot cuoi cung')
 
     if right_quarter is False:
         return None
