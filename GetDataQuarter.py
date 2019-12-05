@@ -13,7 +13,7 @@ from math import ceil
 
 # Cau hinh luu syslog cho chuong trinh
 logger = logging.getLogger('pingdetect')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.WARNING)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s',
                               datefmt='%y-%m-%d %H:%M:%S')
 
@@ -233,7 +233,7 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter):
     retry = 0
 
     while right_quarter is not True:
-        try_time = 7
+        try_time = 10
         for i in range(0, try_time):
             page = requests.get(url)
             page.raise_for_status()
@@ -252,7 +252,7 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter):
                 right_quarter = True
                 df = dump_df
                 break
-            sleep(1)
+            sleep(3)
 
         else:
             print('Khong tim thay du lieu trong cot "%s"' % columns[-1])
@@ -305,7 +305,7 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter):
             # df = dump_df.merge(df, how='outer', right_index=True, left_index=True)
             df = pandas.concat([dump_df, df], axis=1)
 
-    df = customize_report(df)
+    # df = customize_report(df)
     logger.debug('"df" VAR is: %s' % df)
     df_header = df.columns
     logger.debug('"df" VAR is: %s' % df_header)
