@@ -168,7 +168,7 @@ def create_year_quarter_header(last_year, last_quarter, how_many):
     quarters = dump_quarters[-last_quarter:] + dump_quarters[:-last_quarter]
 
     # Tao chui cac quy tuong ung do dai can thiet
-    long_quarters = quarters * int(ceil(how_many/4))
+    long_quarters = quarters * int(ceil(how_many / 4))
     quarters = long_quarters[:how_many]
 
     headers = []
@@ -360,6 +360,11 @@ def main():
     input_text = input('Cac ma co phieu: ')
     stocks = create_stock_list(input_text)
 
+    # Danh sach cac co phieu bi thieu du lieu Quy gan nhat
+    loss_last_quarter = []
+    # Danh sach cac co phieu bi thieu hoan toan du lieu
+    loss_report = []
+
     print('Nhap vao so thu tu cac loai bao cao ban muon su dung\n'
           '\t[1] Can doi ke toan\n'
           '\t[2] Ket qua hoat dong kinh doanh\n'
@@ -371,19 +376,53 @@ def main():
     options = create_option_list(input_text)
 
     for stock in stocks:
+        print('===***===')
+        print('Dang tien hanh su ly ma co phieu "%s"' % stock)
         # Tao thu muc cho ma co phieu
         stock_dir = os.path.join(database_dir, stock)
         os.makedirs(stock_dir, exist_ok=True)
         logger.info('Khoi tao thu muc cho ma co phieu "%s"' % stock)
 
         for option in options:
-            report = get_data_of_many_quarter(stock, report_style[option][1], report_style[option][0], 8)
+            report_long_name = report_style[option][0]
+            report_short_name = report_style[option][1]
+            how_many_quarter = 8
+            report = get_data_of_many_quarter(stock,
+                                              report_short_name,
+                                              report_long_name,
+                                              how_many_quarter)
+
+            # Ghi nhan loi khong tim thay du lieu
+            if report is None:
+                logger.warning('Khong tim thay du lieu cua bao cao "%s"' % report_long_name)
+                loss_report.append((stock, report_long_name))
+                continue
+
+            how_long, data_frame = report
+
+            # Ghi nhan cac co phieu thieu du lieu cua quy gan nhat
+            year, quarter = get_current_year_quarter()
+            last_quarter = 'Quý {}-{}'.format(year, quarter - 1)
+            if list(data_frame)[-1] != last_quarter:
+                logger.warning('Khong tim thay du lieu cua quy gan nhat')
+                loss_last_quarter.append((stock, report_long_name))
 
             # luu thanh file ket qua
-            how_long, data_frame = report
             file_patch = os.path.join(stock_dir, report_style[option][2].format(how_long))
             data_frame.to_csv(file_patch)
             logger.info('Da luu file "%s" thanh cong' % file_patch)
+
+        print('Da su ly xong ma co phieu "%s", chuan bi chuyen qua ma tiep theo ...' % stock)
+
+    if loss_last_quarter:
+        print('Cac co phieu bi thieu du lieu Quy gan nhat, bao gom: ')
+        for stock, report_long_name in loss_last_quarter:
+            print('\t- "{}": {}'.format(stock, report_long_name))
+
+    if loss_report:
+        print('Cac co phieu khong tim thay du lieu, bao gom: ')
+        for stock, report_long_name in loss_report:
+            print('\t- "{}": {}'.format(stock, report_long_name))
 
 
 if __name__ == '__main__':
