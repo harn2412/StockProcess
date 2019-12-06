@@ -10,13 +10,13 @@ import pandas
 
 # Cau hinh luu syslog cho chuong trinh
 logger = logging.getLogger('pingdetect')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.WARNING)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s',
                               datefmt='%y-%m-%d %H:%M:%S')
 
 # Khai bao log Handler de ghi ket qua vao file log
 file = logging.FileHandler('result.log')
-file.setLevel(logging.DEBUG)
+file.setLevel(logging.WARNING)
 file.setFormatter(formatter)
 logger.addHandler(file)
 
@@ -58,17 +58,22 @@ def convert_to_number(text):
 
 def get_index_name(text):
     """Lam dep phan ten cua cac thong so"""
+    # Loai bo khoang trong truoc va sau ten gia tri
 
-    pattern = re.compile(r'\s*([\w(].*\w)\s*')
-    search_result = pattern.search(text)
+    pattern = re.compile(r'\S.+\S')
+    search_result1 = pattern.search(text)
 
-    logger.debug('"search_result" VAR is: %s' % search_result)
+    logger.debug('"search_result" VAR is: %s' % search_result1)
 
-    if search_result is not None:
-        pattern = re.compile(r'[IVX\d\-.\s]*(.*)')  # loai bo phan danh so chi muc
-        search_result = pattern.search(search_result.group(1))
+    if search_result1 is not None:
+        pattern = re.compile(r'[\d\-.]+\s?(.*)')  # loai bo phan danh so chi muc
+        search_result2 = pattern.search(search_result1.group())
 
-        index = search_result.group(1)
+        if search_result2:
+            index = search_result2.group(1)
+        else:
+            index = search_result1.group()
+
         logger.info('Chuyen doi thanh cong, ket qua thu duoc: %s' % index)
         return index
 
@@ -93,7 +98,7 @@ def get_years(page_soup):
         return None
 
 
-def get_data(page_soup):
+def get_data(page_soup, report_type):
     """Lay cac du lieu co trong trang"""
 
     table_content = page_soup.find('table', {'id': 'tableContent'})
@@ -106,8 +111,9 @@ def get_data(page_soup):
         logger.debug('"table_content" VAR is: %s' % table_content)
 
         # Danh sach cac thong so
-        index_id = []
-        index_name = []
+        index_ids = []
+        index_names = []
+        unique_ids = []
 
         # Du lieu trong bang
         data = []
@@ -129,16 +135,21 @@ def get_data(page_soup):
             # Lay ma ID cua thong so
             value_id = row.get('id')
             # Giai quyet cac truong hop bi trung id
-            while value_id in index_id:
+            while value_id in index_ids:
                 logger.warning('Ma ID "%s" bi trung, dang tien hanh sua chua')
                 value_id += '*'
             logger.debug('"value_id" VAR is: %s' % value_id)
-            index_id.append(value_id)
+            index_ids.append(value_id)
 
             # Cell dau tien ten cua thong so (value name)
             value_name = get_index_name(cells[0].text)
             logger.debug('"value_name" VAR is: %s' % value_name)
-            index_name.append(value_name)
+            index_names.append(value_name)
+
+            # Tao Unique ID cho thong so
+            unique_id = create_unique_id(value_id, value_name, report_type)
+            logger.debug('"unique_id" VAR is: %s' % unique_id)
+            unique_ids.append(unique_id)
 
             # 4 cell ke tiep la du lieu can lay trong hang
             row_data = [
@@ -150,11 +161,17 @@ def get_data(page_soup):
             logger.debug('"row_data" VAR is: %s' % row_data)
             data.append(row_data)
 
-    logger.debug('"index_id" VAR is: %s' % index_id)
-    logger.debug('"index_name" VAR is: %s' % index_name)
+    logger.debug('"index_id" VAR is: %s' % index_ids)
+    logger.debug('"index_name" VAR is: %s' % index_names)
     logger.debug('"data" VAR is: %s' % data)
 
-    return index_id, index_name, data
+    return unique_ids, index_ids, index_names, data
+
+
+def create_unique_id(index_id, index_name, report_type):
+    """Tao ra ID doc nhat cho gia tri dua vao ket qua thu duoc"""
+    unique_id = hash(index_id + index_name + report_type)
+    return unique_id
 
 
 def create_stock_list(text):
@@ -181,7 +198,7 @@ def get_current_year():
     return current_year
 
 
-def get_data_of_many_year(stock, style, name, how_many_year):
+def get_data_of_many_year(stock, report_type, name, how_many_year):
     """Lay du lieu trong nhieu nam va tong hop lai thanh mot bang"""
 
     df = None
@@ -196,7 +213,7 @@ def get_data_of_many_year(stock, style, name, how_many_year):
 
     url = url_template.format(
         stock_id=stock,
-        report_style=style,
+        report_style=report_type,
         year=year,
         report_name=name,
     )
@@ -217,7 +234,7 @@ def get_data_of_many_year(stock, style, name, how_many_year):
             # muc dich la tranh phai tai lai trang web mot cach khong can thiet
             url = url_template.format(
                 stock_id=stock,
-                report_style=style,
+                report_style=report_type,
                 year=year,
                 report_name=name,
             )
@@ -231,7 +248,7 @@ def get_data_of_many_year(stock, style, name, how_many_year):
         years = get_years(soup)
 
         # Du lieu va chi muc hien tai
-        index_ids, index_names, data = get_data(soup)
+        unique_ids, index_ids, index_names, data = get_data(soup, report_type)
 
         # Tao Dataframe cho cac nam hien tai
         dump_df = pandas.DataFrame(data=data, index=index_ids, columns=years)
