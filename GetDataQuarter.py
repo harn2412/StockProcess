@@ -394,7 +394,7 @@ def main():
 
             # Ghi nhan loi khong tim thay du lieu
             if report is None:
-                logger.warning('Khong tim thay du lieu cua bao cao "%s"' % report_long_name)
+                logger.warning('"%s" Khong tim thay du lieu cua bao cao "%s"' % (stock, report_long_name))
                 loss_report.append((stock, report_long_name))
                 continue
 
@@ -402,9 +402,11 @@ def main():
 
             # Ghi nhan cac co phieu thieu du lieu cua quy gan nhat
             year, quarter = get_current_year_quarter()
-            last_quarter = 'Quý {}-{}'.format(year, quarter - 1)
+            year, quarter = countdown_quarter(year, quarter, 1)[0]
+            last_quarter = 'Quý {}-{}'.format(quarter, year)
             if list(data_frame)[-1] != last_quarter:
-                logger.warning('Khong tim thay du lieu cua quy gan nhat')
+                logger.warning(
+                    '"%s" Khong tim thay du lieu cua quy gan nhat cua bao cao "%s"' % (stock, report_long_name))
                 loss_last_quarter.append((stock, report_long_name))
 
             # luu thanh file ket qua
