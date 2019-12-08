@@ -377,7 +377,7 @@ def main():
 
     for stock in stocks:
         print('===***===')
-        print('Dang tien hanh su ly ma co phieu "%s"' % stock)
+        print('Dang tien hanh xu ly ma co phieu "%s"' % stock)
         # Tao thu muc cho ma co phieu
         stock_dir = os.path.join(database_dir, stock)
         os.makedirs(stock_dir, exist_ok=True)
@@ -387,6 +387,8 @@ def main():
             report_long_name = report_style[option][0]
             report_short_name = report_style[option][1]
             how_many_quarter = 8
+
+            print('Dang lay du lieu cua bao cao "%s"' % report_long_name)
             report = get_data_of_many_quarter(stock,
                                               report_short_name,
                                               report_long_name,
@@ -410,11 +412,12 @@ def main():
                 loss_last_quarter.append((stock, report_long_name))
 
             # luu thanh file ket qua
+            print('Luu bao cao "%s" ...' % report_long_name)
             file_patch = os.path.join(stock_dir, report_style[option][2].format(how_long))
             data_frame.to_csv(file_patch)
             logger.info('Da luu file "%s" thanh cong' % file_patch)
 
-        print('Da su ly xong ma co phieu "%s", chuan bi chuyen qua ma tiep theo ...' % stock)
+        print('Da xu ly xong ma co phieu "%s", chuan bi chuyen qua ma tiep theo ...' % stock)
 
     if loss_last_quarter:
         print('Cac co phieu bi thieu du lieu Quy gan nhat, bao gom: ')
@@ -429,3 +432,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    input('Press Enter to quit')
