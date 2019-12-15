@@ -241,12 +241,19 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter):
 
             index_names, data = get_data(soup)
             dump_df = pandas.DataFrame(data, index=index_names, columns=columns)
-            dump_df = dump_df.fillna(0)
             logger.debug('"dump_df" VAR is: %s' % dump_df)
-            last_column = dump_df[columns[-1]].tolist()
+
+            # Kiem tra xem co du lieu nao khong
+            if dump_df.isnull().to_numpy().all():
+                print('Khong tim thay du lieu trong tat ca cac cot gan nhat')
+                retry = 4
+                break
+
+            # Kiem tra xem co du lieu trong cot cuoi cung khong
+            last_column = dump_df[columns[-1]]
             logger.debug('"last_column" VAR is: %s' % last_column)
 
-            if set(last_column) == {0}:
+            if last_column.isnull().all():
                 print('Khong tim thay du lieu, thu tai lai trang ...')
             else:
                 right_quarter = True
@@ -271,8 +278,8 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter):
             print("Da cap nhat lai URL moi voi gia tri: %s" % url)
             print("Tien hanh thu lai lan %s" % retry)
 
-        if retry >= 3:
-            print('Khong the tim thay du lieu trong cot cuoi cung, de nghi kiem tra lai')
+        if retry >= 4:
+            print('Khong the tim thay du lieu, de nghi kiem tra lai')
             break
     else:
         print('Da tim thay du lieu cho cot cuoi cung')
