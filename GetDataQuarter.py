@@ -9,7 +9,6 @@ import logging
 import os
 import pandas
 from time import sleep
-from math import ceil
 
 # Cau hinh luu syslog cho chuong trinh
 logger = logging.getLogger('pingdetect')
@@ -42,14 +41,17 @@ def convert_to_number(text):
 
         try:  # thu chuyen thanh so int
             result = int(num_text)
-            logger.info('Chuyen doi qua INT thanh cong, gia tri la: %s' % result)
+            logger.info('Chuyen doi qua INT thanh cong, gia tri la: %s' %
+                        result)
         except ValueError:
             logger.info('Chuyen doi qua INT that bai')
             try:  # thu chuyen thanh so float
                 result = float(num_text)
-                logger.info('Chuyen doi qua FLOAT thanh cong, gia tri la: %s' % result)
+                logger.info('Chuyen doi qua FLOAT thanh cong, gia tri la: %s' %
+                            result)
             except ValueError:
-                logger.warning('Khong the chuyen doi "%s" ra INT hoac FLOAT' % num_text)
+                logger.warning('Khong the chuyen doi "%s" ra INT hoac FLOAT' %
+                               num_text)
                 print('Khong phai Int hoac Float')
                 result = numpy.nan
 
@@ -158,27 +160,17 @@ def get_current_year_quarter():
 
 
 def create_year_quarter_header(last_year, last_quarter, how_many):
-    """Tao mot danh sach cac quy va nam dem lui tuong ung voi nam cuoi cung
-    :type last_year: int
-    :type last_quarter: int
-    :type how_many: int
-    """
+    """Tao mot danh sach cac quy va nam dem lui tuong ung voi nam cuoi cung"""
+    full_list = ([(last_year, last_quarter)] +
+                 countdown_quarter(last_year, last_quarter, how_many-1))
 
-    dump_quarters = [4, 3, 2, 1]
-    quarters = dump_quarters[-last_quarter:] + dump_quarters[:-last_quarter]
-
-    # Tao chui cac quy tuong ung do dai can thiet
-    long_quarters = quarters * int(ceil(how_many / 4))
-    quarters = long_quarters[:how_many]
+    # Dao nguoc lai de dung trat tu hien thi (quy gan nhat nam ben tay phai)
+    full_list.reverse()
 
     headers = []
-    for quarter in quarters:
-        if quarter == 4:
-            last_year -= 1
-        header = 'Quý {}-{}'.format(quarter, last_year)
+    for year, quarter in full_list:
+        header = f'Quý {quarter}-{year}'
         headers.append(header)
-
-    headers.reverse()  # de cho dung voi bo cuc cua data
 
     return headers
 
@@ -203,17 +195,20 @@ def countdown_quarter(year, quarter, step):
     return year_quarter_list
 
 
-def get_data_of_many_quarter(stock, style, name, how_many_quarter):
+def get_data_of_many_quarter(stock, style, name, how_many_quarter, urlname):
     """Lay du lieu trong nhieu quy va tong hop lai thanh mot bang"""
 
     df = None
     year, quarter = get_current_year_quarter()
-    quarter -= 1  # vi quy hien tai chac chan khong co du lieu
+    # Lui lai 1 quy vi chac chan quy hien tai khong co du lieu
+    year, quarter = countdown_quarter(year, quarter, 1)[0]
 
     url_template = ('http://s.cafef.vn/bao-cao-tai-chinh/{stock_id}/'
                     '{report_style}/'
                     '{year}/{quarter}/0/0/0/'
-                    '{report_name}.chn')
+                    '{report_name}-'
+                    '{urlname}'
+                    '.chn')
 
     url = url_template.format(
         stock_id=stock,
@@ -221,6 +216,7 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter):
         year=year,
         quarter=quarter,
         report_name=name,
+        urlname=urlname,
     )
 
     logger.debug('"url" VAR is: %s' % url)
@@ -240,7 +236,9 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter):
             soup = BeauSoup(page.content, 'lxml')
 
             index_names, data = get_data(soup)
-            dump_df = pandas.DataFrame(data, index=index_names, columns=columns)
+            dump_df = pandas.DataFrame(data,
+                                       index=index_names,
+                                       columns=columns)
             logger.debug('"dump_df" VAR is: %s' % dump_df)
 
             # Kiem tra xem co du lieu nao khong
@@ -273,6 +271,7 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter):
                 year=year,
                 quarter=quarter,
                 report_name=name,
+                urlname=urlname,
             )
             columns = create_year_quarter_header(year, quarter, 4)
             print("Da cap nhat lai URL moi voi gia tri: %s" % url)
@@ -290,15 +289,18 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter):
     # Neu tim thay quy chinh xac thi tien hanh lay du lieu
     # Tiep tuc tai cac du lieu con thieu
     if how_many_quarter > 4:
-        full_quarter_list = countdown_quarter(year, quarter, how_many_quarter - 4)
+        full_quarter_list = countdown_quarter(year, quarter,
+                                              how_many_quarter - 4)
         logger.debug('"full_quarter_list" VAR is: %s' % full_quarter_list)
-        for year, quarter in full_quarter_list[3::4]:  # bat dau tu 3 la vi gia tri dau tien da tien len 1 san
+        for year, quarter in full_quarter_list[
+                3::4]:  # bat dau tu 3 la vi gia tri dau tien da tien len 1 san
             url = url_template.format(
                 stock_id=stock,
                 report_style=style,
                 year=year,
                 quarter=quarter,
                 report_name=name,
+                urlname=urlname
             )
             page = requests.get(url)
             page.raise_for_status()
@@ -307,7 +309,9 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter):
             index_names, data = get_data(soup)
             columns = create_year_quarter_header(year, quarter, 4)
             logger.debug('"columns" VAR is: %s' % columns)
-            dump_df = pandas.DataFrame(data, index=index_names, columns=columns)
+            dump_df = pandas.DataFrame(data,
+                                       index=index_names,
+                                       columns=columns)
 
             # df = dump_df.merge(df, how='outer', right_index=True, left_index=True)
             df = pandas.concat([dump_df, df], axis=1)
@@ -365,22 +369,29 @@ def main():
           'Vi du: fpt, aaa, vnm')
 
     input_text = input('Cac ma co phieu: ')
-    stocks = create_stock_list(input_text)
+    stocks = create_stock_list(input_text.upper())
 
     # Danh sach cac co phieu bi thieu du lieu Quy gan nhat
     loss_last_quarter = []
     # Danh sach cac co phieu bi thieu hoan toan du lieu
     loss_report = []
 
-    print('Nhap vao so thu tu cac loai bao cao ban muon su dung\n'
-          '\t[1] Can doi ke toan\n'
-          '\t[2] Ket qua hoat dong kinh doanh\n'
-          '\t[3] Luu chuyen tien te gian tiep\n'
-          '\t[4] Tai tat ca\n'
-          'Co the tai mot hoac nhieu loai bao cao va phan cach bang dau phay ",". Vi du: 1, 2 hoac 1, 3')
+    print(
+        'Nhap vao so thu tu cac loai bao cao ban muon su dung\n'
+        '\t[1] Can doi ke toan\n'
+        '\t[2] Ket qua hoat dong kinh doanh\n'
+        '\t[3] Luu chuyen tien te gian tiep\n'
+        '\t[4] Tai tat ca\n'
+        'Co the tai mot hoac nhieu loai bao cao va phan cach bang dau phay ",". Vi du: 1, 2 hoac 1, 3'
+    )
 
     input_text = input('Tuy chon: ')
     options = create_option_list(input_text)
+
+    # Tai thong tin cua cac ma chung khoan dang niem yet
+    basestocks_df = pandas.read_csv('basestocks.csv')
+    # Chuyen Index qua cot Symbol (ma chung khoan)
+    basestocks_df = basestocks_df.set_index('Symbol')
 
     for stock in stocks:
         print('===***===')
@@ -390,20 +401,29 @@ def main():
         os.makedirs(stock_dir, exist_ok=True)
         logger.info('Khoi tao thu muc cho ma co phieu "%s"' % stock)
 
+        # Lay ten cong ty dung cho viec tao duong dan
+        try:
+            urlname = basestocks_df.at[stock, 'URLName']
+        except KeyError:
+            print('Khong tim thay ma chung khoan %s trong danh sach niem yet' % stock)
+            print('Tien hanh bo qua')
+            continue
+
         for option in options:
             report_long_name = report_style[option][0]
             report_short_name = report_style[option][1]
             how_many_quarter = 8
 
             print('Dang lay du lieu cua bao cao "%s"' % report_long_name)
-            report = get_data_of_many_quarter(stock,
-                                              report_short_name,
+            report = get_data_of_many_quarter(stock, report_short_name,
                                               report_long_name,
-                                              how_many_quarter)
+                                              how_many_quarter,
+                                              urlname)
 
             # Ghi nhan loi khong tim thay du lieu
             if report is None:
-                logger.warning('"%s" Khong tim thay du lieu cua bao cao "%s"' % (stock, report_long_name))
+                logger.warning('"%s" Khong tim thay du lieu cua bao cao "%s"' %
+                               (stock, report_long_name))
                 loss_report.append((stock, report_long_name))
                 continue
 
@@ -415,16 +435,20 @@ def main():
             last_quarter = 'Quý {}-{}'.format(quarter, year)
             if list(data_frame)[-1] != last_quarter:
                 logger.warning(
-                    '"%s" Khong tim thay du lieu cua quy gan nhat cua bao cao "%s"' % (stock, report_long_name))
+                    '"%s" Khong tim thay du lieu cua quy gan nhat cua bao cao "%s"'
+                    % (stock, report_long_name))
                 loss_last_quarter.append((stock, report_long_name))
 
             # luu thanh file ket qua
             print('Luu bao cao "%s" ...' % report_long_name)
-            file_patch = os.path.join(stock_dir, report_style[option][2].format(how_long))
+            file_patch = os.path.join(stock_dir,
+                                      report_style[option][2].format(how_long))
             data_frame.to_csv(file_patch)
             logger.info('Da luu file "%s" thanh cong' % file_patch)
 
-        print('Da xu ly xong ma co phieu "%s", chuan bi chuyen qua ma tiep theo ...' % stock)
+        print(
+            'Da xu ly xong ma co phieu "%s", chuan bi chuyen qua ma tiep theo ...'
+            % stock)
 
     if loss_last_quarter:
         print('Cac co phieu bi thieu du lieu Quy gan nhat, bao gom: ')
