@@ -142,10 +142,10 @@ def create_stock_list(text):
 
 def create_option_list(text):
     """Lam ra danh sach cac tuy chon bao cao muon tai ve"""
-    pattern = re.compile(r'[1234]+')
+    pattern = re.compile(r'[12345]+')
     options = tuple([int(opt_text) for opt_text in pattern.findall(text)])
-    if 4 in options:
-        return 1, 2, 3
+    if 5 in options:
+        return 1, 2, 3, 4
     else:
         return options
 
@@ -199,7 +199,8 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter, urlname):
     """Lay du lieu trong nhieu quy va tong hop lai thanh mot bang"""
 
     df = None
-    year, quarter = get_current_year_quarter()
+    # year, quarter = get_current_year_quarter()
+    year, quarter = 2019, 4  # dung tam trong qua trinh cho sua cach kiem tra thoi gian
     # Lui lai 1 quy vi chac chan quy hien tai khong co du lieu
     year, quarter = countdown_quarter(year, quarter, 1)[0]
 
@@ -227,6 +228,8 @@ def get_data_of_many_quarter(stock, style, name, how_many_quarter, urlname):
     # kiem thu xem Quy hien tai co du lieu hay khong?
     right_quarter = False
     retry = 0
+
+    print(url)
 
     while right_quarter is not True:
         try_time = 10
@@ -328,6 +331,7 @@ report_style = {
     1: ('can-doi-ke-toan', 'BSheet', 'bs [{}].csv'),
     2: ('ket-qua-hoat-dong-kinh-doanh', 'IncSta', 'ist [{}].csv'),
     3: ('luu-chuyen-tien-te-gian-tiep', 'CashFlow', 'cf [{}].csv'),
+    4: ('luu-chuyen-tien-te-truc-tiep', 'CashFlowDirect', 'cft [{}].csv'),
 }
 
 
@@ -381,7 +385,8 @@ def main():
         '\t[1] Can doi ke toan\n'
         '\t[2] Ket qua hoat dong kinh doanh\n'
         '\t[3] Luu chuyen tien te gian tiep\n'
-        '\t[4] Tai tat ca\n'
+        '\t[4] Luu chuyen tien te truc tiep\n'
+        '\t[5] Tai tat ca\n'
         'Co the tai mot hoac nhieu loai bao cao va phan cach bang dau phay ",". Vi du: 1, 2 hoac 1, 3'
     )
 
@@ -430,7 +435,8 @@ def main():
             how_long, data_frame = report
 
             # Ghi nhan cac co phieu thieu du lieu cua quy gan nhat
-            year, quarter = get_current_year_quarter()
+            # year, quarter = get_current_year_quarter()
+            year, quarter = 2019, 4  # dung tam trong luc dieu chinh lai cach lay moc thoi gian
             year, quarter = countdown_quarter(year, quarter, 1)[0]
             last_quarter = 'Quý {}-{}'.format(quarter, year)
             if list(data_frame)[-1] != last_quarter:
