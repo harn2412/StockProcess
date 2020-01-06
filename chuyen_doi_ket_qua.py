@@ -9,19 +9,19 @@ from openpyxl import load_workbook
 from shutil import copyfile
 
 
-def dframe_num_format(dframe, csv_type):
-    """Function dung de chuyen cac cot thong tin ve gia tri float vi cac
-    cot do bi xem nhu str"""
-
-    if csv_type in ('bs.csv', 'ist.csv'):
-        start_point = 2
-    elif csv_type == 'cf.csv':
-        start_point = 1
-
-    for column in dframe.columns[start_point:]:
-        dframe[column] = pd.to_numeric(dframe[column], errors='coerce')
-
-    return dframe
+# def dframe_num_format(dframe, csv_type):
+#     """Function dung de chuyen cac cot thong tin ve gia tri float vi cac
+#     cot do bi xem nhu str"""
+#
+#     if csv_type in ('bs.csv', 'ist.csv'):
+#         start_point = 2
+#     elif csv_type == 'cf.csv':
+#         start_point = 1
+#
+#     for column in dframe.columns[start_point:]:
+#         dframe[column] = pd.to_numeric(dframe[column], errors='coerce')
+#
+#     return dframe
 
 
 def csv_to_excel(csv_dir_path, excel_file_path):
@@ -31,15 +31,19 @@ def csv_to_excel(csv_dir_path, excel_file_path):
     worksheet_name = {}
     
     for r, d, f in os.walk(csv_dir_path):
-    # r: root ; d: directory ; f : file
+        # r: root ; d: directory ; f : file
         for file in f:
             if "bs" in file and "Quý" in file:
                 worksheet_name[file] = 'Quarterly BS input (CafeF)'
             elif "bs" in file and "Quý" not in file:
                 worksheet_name[file] = 'BS Input (CafeF)'
-            elif "cf" in file and "Quý" in file:
+            elif "cfg" in file and "Quý" in file:
                 worksheet_name[file] = 'Quarterly CS input (CafeF)'
-            elif "cf" in file and "Quý" not in file:
+            elif "cfg" in file and "Quý" not in file:
+                worksheet_name[file] = 'CS input (CafeF)'
+            elif "cft" in file and "Quý" in file:
+                worksheet_name[file] = 'Quarterly CS input (CafeF)'
+            elif "cft" in file and "Quý" not in file:
                 worksheet_name[file] = 'CS input (CafeF)'
             elif "ist" in file and "Quý" in file:
                 worksheet_name[file] = 'Quarterly IS input (Cafef)'
@@ -60,11 +64,7 @@ def csv_to_excel(csv_dir_path, excel_file_path):
             # Kiem tra xem file co ton tai khong
             if os.path.exists(csv_file_bath):
                 print('Chuan bi chuyen doi tap tin %s' % csv_file)
-                try:
-                    dframe = pd.read_csv(csv_file_bath)
-                except pd.errors.ParserError:
-                    print('file bi loi, tien hanh bo qua')
-                    continue
+                dframe = pd.read_csv(csv_file_bath)
 
                 # Chuyen gia tri ve dang so
 
